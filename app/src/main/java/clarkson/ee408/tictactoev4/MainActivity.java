@@ -4,6 +4,7 @@ import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -11,20 +12,40 @@ import android.widget.Button;
 import android.widget.GridLayout;
 import android.widget.TextView;
 import android.os.Bundle;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import java.io.IOException;
+
+import clarkson.ee408.tictactoev4.client.SocketClient;
+import clarkson.ee408.tictactoev4.socket.Request;
+import clarkson.ee408.tictactoev4.socket.Response;
 
 public class MainActivity extends AppCompatActivity {
     private TicTacToe tttGame;
     private Button [][] buttons;
     private TextView status;
+    private boolean shouldRequestMove = false;
+
+    Handler handler = new Handler();
+    private Runnable runnableCode = new Runnable() {
+        @Override
+        public void run() {
+            Log.d("Handlers", "Called on main thread");
+            handler.postDelayed(this, 2000);
+        }
+    };
 
     @Override
     protected void onCreate( Bundle savedInstanceState ) {
         super.onCreate( savedInstanceState );
-        tttGame = new TicTacToe( );
+        tttGame = new TicTacToe(1); // start player 1 then start player 2
         buildGuiByCode( );
+
+        handler.post(runnableCode);
+        updateTurnStatus();
     }
 
     public void buildGuiByCode( ) {
@@ -105,6 +126,60 @@ public class MainActivity extends AppCompatActivity {
             status.setText( tttGame.result( ) );
             showNewGameDialog( );	// offer to play again
         }
+        else updateTurnStatus();
+    }
+
+    public void sendMove (int row, int col) {
+        Request sendMoveReq = new Request(Request.RequestType.SEND_MOVE, new int[]{row, col});
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                SocketClient socketClient = SocketClient.getInstance();
+                Response response = socketClient.sendRequest(sendMoveReq, Response.class);
+                update(row, col);
+            }
+        }).start();
+    }
+
+    public void requestMove (final int row, final int col) {
+        Request moveReq = new Request(Request.RequestType.REQUEST_MOVE, new int[]{row, col});
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                SocketClient socketClient = SocketClient.getInstance();
+                Response response = socketClient.sendRequest(moveReq, Response.class);
+
+                if (response != null && (response.getStatus() == Response.ResponseStatus.SUCCESS)) { // should also check if the move is valid
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            tttGame.update(row, col);
+                        }
+                    });
+                } else {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, "Invalid move or network error", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
+    public void updateTurnStatus( ) {
+        int turn = tttGame.getTurn();
+        int play = tttGame.getPlayer();
+        if ((play == 1 && turn == 1) || (play == 2 && turn == 2)) {
+            shouldRequestMove = true;
+            enableButtons(true);
+        }
+        else {
+            shouldRequestMove = false;
+            enableButtons(false);
+        }
+        status.setText( tttGame.result( ) );
     }
 
     public void enableButtons( boolean enabled ) {
@@ -121,7 +196,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void showNewGameDialog( ) {
         AlertDialog.Builder alert = new AlertDialog.Builder( this );
-        alert.setTitle( "This is fun" );
+        alert.setTitle( "Do you want to play again?" );
         alert.setMessage( "Play again?" );
         PlayDialog playAgain = new PlayDialog( );
         alert.setPositiveButton( "YES", playAgain );
@@ -133,10 +208,13 @@ public class MainActivity extends AppCompatActivity {
         public void onClick( View v ) {
             Log.d("button clicked", "button clicked");
 
-            for( int row = 0; row < TicTacToe.SIDE; row ++ )
-                for( int column = 0; column < TicTacToe.SIDE; column++ )
-                    if( v == buttons[row][column] )
-                        update( row, column );
+            int column = 0;
+            int row;
+            for (row = 0; row < TicTacToe.SIDE; row++)
+                for (column = 0; column < TicTacToe.SIDE; column++)
+                    if (v == buttons[row][column])
+                        update(row, column);
+            sendMove(row, column);
         }
     }
 
