@@ -94,6 +94,7 @@ public class TicTacToe extends MainActivity {
         for (int row = 0; row < SIDE; row++)
             for( int col = 0; col < SIDE; col++ )
                 game[row][col] = 0;
+        player = (player == 1) ? 2 : 1;
         turn = 1;
     }
 
@@ -102,7 +103,7 @@ public class TicTacToe extends MainActivity {
             return "Player " + whoWon( ) + " won";
         else if( canNotPlay( ) )
             return "Tie Game";
-        else if ((player == 1 && turn == 1) || (player == 2 && turn == 2))
+        else if ((getPlayer() == 1 && getTurn() == 1) || (getPlayer() == 2 && getTurn() == 2))
             return "Your Turn";
         else
             return "Waiting For Opponent";
