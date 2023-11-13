@@ -25,6 +25,8 @@ public class GamingResponse extends Response {
      */
     public GamingResponse(ResponseStatus status, String message) {
         super(status, message);
+        this.move = move;
+        this.active = active;
     }
 
 // Get and Set

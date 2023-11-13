@@ -19,6 +19,7 @@ public class TicTacToe extends MainActivity {
     }
 
     public TicTacToe(int player) {
+        this.player = player;
         game = new int[SIDE][SIDE];
         resetGame( );
     }
@@ -94,18 +95,17 @@ public class TicTacToe extends MainActivity {
         for (int row = 0; row < SIDE; row++)
             for( int col = 0; col < SIDE; col++ )
                 game[row][col] = 0;
-        player = (player == 1) ? 2 : 1;
         turn = 1;
     }
 
     public String result( ) {
-        if( whoWon( ) > 0 )
-            return "Player " + whoWon( ) + " won";
+        if( whoWon( ) == player )
+            return "You Won";
+        else if( whoWon() > 0 )
+            return "You Lost";
         else if( canNotPlay( ) )
             return "Tie Game";
-        else if ((getPlayer() == 1 && getTurn() == 1) || (getPlayer() == 2 && getTurn() == 2))
-            return "Your Turn";
         else
-            return "Waiting For Opponent";
+            return "PLAY !!";
     }
 }
