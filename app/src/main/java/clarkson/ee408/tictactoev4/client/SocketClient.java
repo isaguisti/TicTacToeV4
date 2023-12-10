@@ -25,7 +25,7 @@ public class SocketClient {
     private Gson gson;
 
     private SocketClient() {
-        String HOSTNAME = "128.153.170.137";
+        String HOSTNAME = "128.153.215.102";
         int PORT = 5000;
 
         gson = new GsonBuilder().serializeNulls().create();

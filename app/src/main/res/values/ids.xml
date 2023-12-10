@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="button_available_user" type="id" />
+    <item name="editTextConfirmPassword" type="id" />
+    <item name="editTextDisplayName" type="id" />
+</resources>

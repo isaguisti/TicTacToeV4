@@ -42,11 +42,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate( Bundle savedInstanceState ) {
         super.onCreate( savedInstanceState );
-        tttGame = new TicTacToe(1); // start player 1 then start player 2
+        int player = getIntent().getIntExtra("PLAYER", 1);
+        tttGame = new TicTacToe(player);
         buildGuiByCode( );
 
         gson = new GsonBuilder().serializeNulls().create();
         updateTurnStatus();
+
+        shouldRequestMove = true;
 
         handler = new Handler();
         refresh = () -> {
@@ -170,7 +173,9 @@ public class MainActivity extends AppCompatActivity {
                     Toast.makeText(getApplicationContext(), "Network Error", Toast.LENGTH_LONG).show();
                 } else if (response.getStatus() == Response.ResponseStatus.FAILURE) {
                     Toast.makeText(getApplicationContext(), response.getMessage(), Toast.LENGTH_LONG).show();
-                } else if(response.getMove() != -1){
+                } else if(!response.getActive()) {
+                    showNewGameDialog(); // not sure how to do task 10
+                } else if(response.getMove() != -1) {
                     // Convert cell id to row and columns
                     int row = response.getMove() / 3;
                     int col = response.getMove() % 3;
@@ -178,19 +183,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         });
-
     }
 
     public void updateTurnStatus( ) {
         if(tttGame.getPlayer() == tttGame.getTurn()){
             status.setText("Your Turn");
             enableButtons(true);
-            shouldRequestMove = false;
         }
         else {
             status.setText("Waiting for Opponent");
             enableButtons(false);
-            shouldRequestMove = true;
         }
     }
 
@@ -233,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
 
     private class PlayDialog implements DialogInterface.OnClickListener {
         public void onClick( DialogInterface dialog, int id ) {
-            if( id == -1 ) /* YES button */ {
+            if(id == DialogInterface.BUTTON_POSITIVE) /* YES button */ {
                 tttGame.resetGame( );
                 enableButtons( true );
                 resetButtons( );
@@ -241,9 +243,61 @@ public class MainActivity extends AppCompatActivity {
                 status.setText( tttGame.result( ) );
                 tttGame.setPlayer(tttGame.getPlayer() == 1 ? 2:1);
                 updateTurnStatus();
+                shouldRequestMove = true;
             }
-            else if( id == -2 ) // NO button
+            else if(id == DialogInterface.BUTTON_NEGATIVE) /* NO button */
                 MainActivity.this.finish( );
+        }
+    }
+
+    private void completeGame() {
+        Request request = new Request();
+        request.setType(Request.RequestType.COMPLETE_GAME);
+
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            Response response = SocketClient.getInstance().sendRequest(request, Response.class);
+
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                if (response == null) {
+                    Toast.makeText(getApplicationContext(), "Network Error", Toast.LENGTH_LONG).show();
+                } else if (response.getStatus() == Response.ResponseStatus.SUCCESS) {
+                    Toast.makeText(getApplicationContext(), "Game completed successfully", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getApplicationContext(), "Failed to complete game: " + response.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        });
+    }
+
+    private void abortGame() {
+        Request request = new Request();
+        request.setType(Request.RequestType.ABORT_GAME);
+
+        AppExecutors.getInstance().networkIO().execute(() -> {
+            Response response = SocketClient.getInstance().sendRequest(request, Response.class);
+
+            AppExecutors.getInstance().mainThread().execute(() -> {
+                if (response == null) {
+                    Toast.makeText(getApplicationContext(), "Network Error", Toast.LENGTH_LONG).show();
+                } else if (response.getStatus() == Response.ResponseStatus.SUCCESS) {
+                    Toast.makeText(getApplicationContext(), "Game aborted successfully", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getApplicationContext(), "Failed to abort game: " + response.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        handler.removeCallbacks(refresh);
+
+        if (tttGame != null && tttGame.isGameOver()) {
+            completeGame();
+        } else {
+            abortGame();
         }
     }
 }
